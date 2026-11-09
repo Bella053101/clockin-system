@@ -248,15 +248,16 @@
     let currentGasUrl = DEFAULT_GAS_URL;
     localStorage.setItem('gas_api_url', DEFAULT_GAS_URL);
 
+    // 防止連點防抖開關
+    let isSubmitting = false;
+
     // 透過 GET 參數將打卡資料傳給 Apps Script，徹底避免瀏覽器跨域 (CORS) 阻擋
     async function sendToGoogleSheet(payload) {
       if (!currentGasUrl) return;
       try {
         const queryParams = new URLSearchParams(payload).toString();
         const fullUrl = `${currentGasUrl}?${queryParams}`;
-        // 使用 Image ping 或 no-cors fetch 確保在任何瀏覽器中必定送達
-        const img = new Image();
-        img.src = fullUrl;
+        // 只使用單一 fetch 送出，避免同時被發送兩次
         await fetch(fullUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {});
       } catch (err) {
         console.error('Sheet Sync Error:', err);
@@ -337,6 +338,9 @@
 
     // 即時打卡 (上班/下班)
     async function submitClockAction(action) {
+      if (isSubmitting) return;
+      isSubmitting = true;
+      setTimeout(() => { isSubmitting = false; }, 2500);
       const employee = document.getElementById('employeeName').value.trim() || '員工';
       const wage = Number(document.getElementById('hourlyWage').value) || 200;
       const note = document.getElementById('instantNote').value.trim() || (action === 'clockIn' ? '即時上班打卡' : '即時下班打卡');
@@ -394,6 +398,9 @@
 
     // 自訂日曆與時間補登
     async function submitManualRecord() {
+      if (isSubmitting) return;
+      isSubmitting = true;
+      setTimeout(() => { isSubmitting = false; }, 2500);
       const employee = document.getElementById('employeeName').value.trim() || '員工';
       const wage = Number(document.getElementById('hourlyWage').value) || 200;
       const date = document.getElementById('customDate').value;
