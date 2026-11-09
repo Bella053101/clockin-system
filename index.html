@@ -244,9 +244,24 @@
   <script>
     // 本機暫存與狀態初始化
     let localRecords = JSON.parse(localStorage.getItem('clockin_records') || '[]');
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzDcuLexSHSmpq6odjIIQpsmkJ9gO53RRcQQjZcS65dVslgXfsgs2EfEehUY575-wwa/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxnHpB2HpXkpf_DzJw0cfcK8lPdo17KIH0B4AYsFuVPfrF-vpXJ6ibXYvU-61nWlYbP/exec';
     let currentGasUrl = DEFAULT_GAS_URL;
     localStorage.setItem('gas_api_url', DEFAULT_GAS_URL);
+
+    // 透過 GET 參數將打卡資料傳給 Apps Script，徹底避免瀏覽器跨域 (CORS) 阻擋
+    async function sendToGoogleSheet(payload) {
+      if (!currentGasUrl) return;
+      try {
+        const queryParams = new URLSearchParams(payload).toString();
+        const fullUrl = `${currentGasUrl}?${queryParams}`;
+        // 使用 Image ping 或 no-cors fetch 確保在任何瀏覽器中必定送達
+        const img = new Image();
+        img.src = fullUrl;
+        await fetch(fullUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+      } catch (err) {
+        console.error('Sheet Sync Error:', err);
+      }
+    }
 
     // 初始化設定
     document.addEventListener('DOMContentLoaded', () => {
@@ -339,21 +354,10 @@
         time: timeStr
       };
 
-      // 檢查 Google Sheet 遠端
-      if (currentGasUrl) {
-        showToast('正在傳送至 Google Sheet...', 'info');
-        try {
-          const resp = await fetch(currentGasUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          showToast(action === 'clockIn' ? '上班打卡已送出至 Google Sheet！' : '下班打卡已送出至 Google Sheet！', 'success');
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      // 同步至 Google 試算表
+      showToast('正在即時寫入 Google Sheet...', 'info');
+      await sendToGoogleSheet(payload);
+      showToast(action === 'clockIn' ? '上班打卡已同步至 Google Sheet！' : '下班打卡已同步至 Google Sheet！', 'success');
 
       // 本機紀錄更新
       if (action === 'clockIn') {
@@ -415,19 +419,8 @@
         note: note
       };
 
-      if (currentGasUrl) {
-        showToast('正在同步至 Google Sheet...', 'info');
-        try {
-          await fetch(currentGasUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      showToast('正在同步至 Google Sheet...', 'info');
+      await sendToGoogleSheet(payload);
 
       localRecords.unshift({
         id: 'REC-' + Date.now(),
