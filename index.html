@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>雲端智能上班打卡與薪資結算系統</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome 圖標 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 min-h-screen text-slate-800 p-4 sm:p-6 lg:p-8">
+
+  <div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- 頂部 Header -->
+    <header class="glass-card rounded-2xl p-6 shadow-2xl border border-white/20 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-business-time"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-800 bg-clip-text text-transparent">
+            雲端上班打卡系統
+          </h1>
+          <p class="text-sm text-slate-500 font-medium">Google Sheet 後端即時同步 ✕ 日曆選時 ✕ 薪水智能試算</p>
+        </div>
+      </div>
+
+      <!-- 即時時間面板 -->
+      <div class="bg-indigo-50/80 px-5 py-3 rounded-xl border border-indigo-100 flex items-center gap-3">
+        <i class="fa-regular fa-clock text-indigo-600 text-xl animate-pulse"></i>
+        <div class="text-right">
+          <div id="liveClock" class="text-xl font-bold font-mono text-indigo-950 tracking-wider">--:--:--</div>
+          <div id="liveDate" class="text-xs text-indigo-600 font-medium">---- 年 -- 月 -- 日</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Google Sheet API 串接提示列 -->
+    <div class="glass-card rounded-2xl p-5 border border-indigo-200/50 shadow-lg">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-indigo-900 font-semibold text-sm">
+          <i class="fa-solid fa-link text-indigo-600"></i>
+          <span>Google Apps Script 串接網址 (Web App URL)</span>
+        </div>
+        <button onclick="toggleApiInput()" class="text-xs text-indigo-600 hover:text-indigo-800 underline">
+          修改後端網址
+        </button>
+      </div>
+      <div id="apiConfigSection" class="mt-3 space-y-2">
+        <div class="flex gap-2">
+          <input type="text" id="gasApiUrl" placeholder="請貼上您的 Google Apps Script 部署 URL (https://script.google.com/macros/s/.../exec)"
+            class="flex-1 px-4 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+          <button onclick="saveApiUrl()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition">
+            儲存連結
+          </button>
+        </div>
+        <p class="text-xs text-slate-500">
+          💡 貼入後打卡將自動寫入您的 Google 試算表；若尚未設定，將自動使用本機展示資料庫。
+        </p>
+      </div>
+    </div>
+
+    <!-- 主要內容區：左右佈局 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- 左側：打卡與表單設定 (5 欄) -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- 基本資料設定 -->
+        <div class="glass-card rounded-2xl p-6 shadow-xl border border-white/20 space-y-4">
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-user-tag text-indigo-600"></i> 員工與薪資設定
+          </h2>
+          
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">員工姓名</label>
+              <input type="text" id="employeeName" value="陳小美" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">時薪 (NTD / 小時)</label>
+              <div class="relative">
+                <span class="absolute left-3.5 top-2.5 text-slate-400 font-bold text-sm">$</span>
+                <input type="number" id="hourlyWage" value="200" min="1" class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-semibold text-indigo-900">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模式切換：即時一鍵打卡 vs 日曆/選時補登 -->
+        <div class="glass-card rounded-2xl p-6 shadow-xl border border-white/20">
+          <div class="flex border-b border-slate-200 mb-5">
+            <button id="tabInstantBtn" onclick="switchTab('instant')" class="flex-1 pb-3 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 transition">
+              <i class="fa-solid fa-bolt mr-1"></i> 即時一鍵打卡
+            </button>
+            <button id="tabCustomBtn" onclick="switchTab('custom')" class="flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+              <i class="fa-solid fa-calendar-days mr-1"></i> 日曆選時補登
+            </button>
+          </div>
+
+          <!-- 模式 1: 即時打卡 -->
+          <div id="tabInstant" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <button onclick="submitClockAction('clockIn')" class="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-gradient-to-b from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 transition active:scale-95">
+                <i class="fa-solid fa-arrow-right-to-bracket text-3xl mb-2 group-hover:scale-110 transition"></i>
+                <span class="font-bold text-base">上班打卡</span>
+                <span class="text-xs text-emerald-100 mt-0.5">記錄現在時間</span>
+              </button>
+
+              <button onclick="submitClockAction('clockOut')" class="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-gradient-to-b from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg shadow-rose-500/25 transition active:scale-95">
+                <i class="fa-solid fa-arrow-right-from-bracket text-3xl mb-2 group-hover:scale-110 transition"></i>
+                <span class="font-bold text-base">下班結算</span>
+                <span class="text-xs text-rose-100 mt-0.5">結算工時薪資</span>
+              </button>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">打卡備註 (選填)</label>
+              <input type="text" id="instantNote" placeholder="例：準時出勤、外勤..." class="w-full px-4 py-2 rounded-xl border border-slate-200 text-xs">
+            </div>
+          </div>
+
+          <!-- 模式 2: 日曆自訂選時 -->
+          <div id="tabCustom" class="hidden space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">
+                <i class="fa-regular fa-calendar text-indigo-500 mr-1"></i> 選擇上班日期
+              </label>
+              <input type="date" id="customDate" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">
+                  <i class="fa-regular fa-clock text-emerald-500 mr-1"></i> 上班時間
+                </label>
+                <input type="time" id="customStartTime" value="09:00" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-semibold">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">
+                  <i class="fa-regular fa-clock text-rose-500 mr-1"></i> 下班時間
+                </label>
+                <input type="time" id="customEndTime" value="18:00" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-semibold">
+              </div>
+            </div>
+
+            <!-- 即時薪資預覽小卡 -->
+            <div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between">
+              <div>
+                <div class="text-xs text-slate-500">預估工時</div>
+                <div id="previewHours" class="text-base font-bold text-indigo-900">9.00 小時</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-slate-500">預估薪水</div>
+                <div id="previewSalary" class="text-lg font-black text-emerald-600">NT$ 1,800</div>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">補登備註</label>
+              <input type="text" id="customNote" placeholder="例：忘記打卡、週末加班..." class="w-full px-4 py-2 rounded-xl border border-slate-200 text-xs">
+            </div>
+
+            <button onclick="submitManualRecord()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition">
+              儲存自訂紀錄至 Google Sheet
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 右側：統計卡片與打卡明細 (7 欄) -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- 數據統計儀表板 -->
+        <div class="grid grid-cols-3 gap-3 sm:gap-4">
+          <div class="glass-card rounded-2xl p-4 shadow-xl border border-white/20">
+            <div class="text-xs font-semibold text-slate-500 mb-1">總打卡次數</div>
+            <div id="statCount" class="text-2xl font-black text-slate-800">0 次</div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4 shadow-xl border border-white/20">
+            <div class="text-xs font-semibold text-indigo-600 mb-1">累積工時</div>
+            <div id="statTotalHours" class="text-2xl font-black text-indigo-700">0.0 hr</div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4 shadow-xl border border-white/20">
+            <div class="text-xs font-semibold text-emerald-600 mb-1">累計應領薪資</div>
+            <div id="statTotalSalary" class="text-2xl font-black text-emerald-600">NT$ 0</div>
+          </div>
+        </div>
+
+        <!-- 打卡明細清單 -->
+        <div class="glass-card rounded-2xl p-6 shadow-xl border border-white/20 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-indigo-600"></i> 打卡與薪資明細
+            </h3>
+            <button onclick="fetchHistory()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+              <i class="fa-solid fa-rotate-right"></i> 重新載入
+            </button>
+          </div>
+
+          <!-- 表格容器 -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100/80 text-slate-600 uppercase font-bold">
+                <tr>
+                  <th class="py-2.5 px-3 rounded-l-lg">日期</th>
+                  <th class="py-2.5 px-2">上班</th>
+                  <th class="py-2.5 px-2">下班</th>
+                  <th class="py-2.5 px-2 text-right">工時</th>
+                  <th class="py-2.5 px-3 text-right">薪資</th>
+                  <th class="py-2.5 px-3 rounded-r-lg">備註</th>
+                </tr>
+              </thead>
+              <tbody id="recordTableBody" class="divide-y divide-slate-100 font-medium">
+                <!-- 動態注入紀錄 -->
+              </tbody>
+            </table>
+          </div>
+
+          <div id="emptyNotice" class="py-8 text-center text-slate-400 text-xs hidden">
+            尚無任何打卡紀錄，請點選上班打卡或進行補登！
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 底部資訊 -->
+    <footer class="text-center text-slate-400 text-xs py-4">
+      雲端上班打卡系統 ✕ Powered by HTML5 + Tailwind CSS + Google Apps Script
+    </footer>
+
+  </div>
+
+  <!-- 操作狀態通知 Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-white font-medium text-sm flex items-center gap-2 transform translate-y-24 opacity-0 transition duration-300 z-50">
+    <i id="toastIcon" class="fa-solid fa-circle-check"></i>
+    <span id="toastMsg">訊息內容</span>
+  </div>
+
+  <script>
+    // 本機暫存與狀態初始化
+    let localRecords = JSON.parse(localStorage.getItem('clockin_records') || '[]');
+    let currentGasUrl = localStorage.getItem('gas_api_url') || '';
+
+    // 初始化設定
+    document.addEventListener('DOMContentLoaded', () => {
+      initClocks();
+      initDateInputs();
+      if (currentGasUrl) {
+        document.getElementById('gasApiUrl').value = currentGasUrl;
+      }
+      renderRecords();
+      updateCalculations();
+      
+      // 綁定選時改變時即時試算薪資
+      document.getElementById('customStartTime').addEventListener('input', updateCalculations);
+      document.getElementById('customEndTime').addEventListener('input', updateCalculations);
+      document.getElementById('hourlyWage').addEventListener('input', updateCalculations);
+    });
+
+    // 時鐘更新
+    function initClocks() {
+      const updateTime = () => {
+        const now = new Date();
+        document.getElementById('liveClock').textContent = now.toTimeString().split(' ')[0];
+        document.getElementById('liveDate').textContent = `${now.getFullYear()} 年 ${now.getMonth() + 1} 月 ${now.getDate()} 日`;
+      };
+      updateTime();
+      setInterval(updateTime, 1000);
+    }
+
+    // 預設日期為今日
+    function initDateInputs() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('customDate').value = today;
+    }
+
+    // 切換分頁
+    function switchTab(mode) {
+      const instantBtn = document.getElementById('tabInstantBtn');
+      const customBtn = document.getElementById('tabCustomBtn');
+      const instantView = document.getElementById('tabInstant');
+      const customView = document.getElementById('tabCustom');
+
+      if (mode === 'instant') {
+        instantBtn.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 transition";
+        customBtn.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
+        instantView.classList.remove('hidden');
+        customView.classList.add('hidden');
+      } else {
+        customBtn.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 transition";
+        instantBtn.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
+        customView.classList.remove('hidden');
+        instantView.classList.add('hidden');
+      }
+    }
+
+    // 工時與薪水計算
+    function calculateHours(startTime, endTime) {
+      if (!startTime || !endTime) return 0;
+      const [sH, sM] = startTime.split(':').map(Number);
+      let [eH, eM] = endTime.split(':').map(Number);
+      let sTotal = sH * 60 + sM;
+      let eTotal = eH * 60 + eM;
+      if (eTotal < sTotal) eTotal += 24 * 60; // 跨午夜
+      return parseFloat(((eTotal - sTotal) / 60).toFixed(2));
+    }
+
+    function updateCalculations() {
+      const s = document.getElementById('customStartTime').value;
+      const e = document.getElementById('customEndTime').value;
+      const wage = Number(document.getElementById('hourlyWage').value) || 200;
+      const hours = calculateHours(s, e);
+      const salary = Math.round(hours * wage);
+
+      document.getElementById('previewHours').textContent = `${hours.toFixed(2)} 小時`;
+      document.getElementById('previewSalary').textContent = `NT$ ${salary.toLocaleString()}`;
+    }
+
+    // 即時打卡 (上班/下班)
+    async function submitClockAction(action) {
+      const employee = document.getElementById('employeeName').value.trim() || '員工';
+      const wage = Number(document.getElementById('hourlyWage').value) || 200;
+      const note = document.getElementById('instantNote').value.trim() || (action === 'clockIn' ? '即時上班打卡' : '即時下班打卡');
+      
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
+
+      const payload = {
+        action: action,
+        employeeName: employee,
+        hourlyWage: wage,
+        note: note,
+        date: dateStr,
+        time: timeStr
+      };
+
+      // 檢查 Google Sheet 遠端
+      if (currentGasUrl) {
+        showToast('正在傳送至 Google Sheet...', 'info');
+        try {
+          const resp = await fetch(currentGasUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          showToast(action === 'clockIn' ? '上班打卡已送出至 Google Sheet！' : '下班打卡已送出至 Google Sheet！', 'success');
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // 本機紀錄更新
+      if (action === 'clockIn') {
+        localRecords.unshift({
+          id: 'REC-' + Date.now(),
+          employee: employee,
+          date: dateStr,
+          startTime: timeStr,
+          endTime: '未打卡',
+          hours: 0,
+          hourlyWage: wage,
+          salary: 0,
+          note: note
+        });
+        showToast(`上班打卡成功！(${timeStr})`, 'success');
+      } else {
+        // 下班：尋找未結算打卡
+        const target = localRecords.find(r => r.employee === employee && r.date === dateStr && r.endTime === '未打卡');
+        if (target) {
+          target.endTime = timeStr;
+          target.hours = calculateHours(target.startTime, timeStr);
+          target.salary = Math.round(target.hours * wage);
+          target.note = note;
+          showToast(`下班成功！工時 ${target.hours}h，薪水 NT$ ${target.salary}`, 'success');
+        } else {
+          showToast('今天尚未找到上班打卡紀錄，請用補登模式！', 'error');
+          return;
+        }
+      }
+
+      saveLocal();
+      renderRecords();
+    }
+
+    // 自訂日曆與時間補登
+    async function submitManualRecord() {
+      const employee = document.getElementById('employeeName').value.trim() || '員工';
+      const wage = Number(document.getElementById('hourlyWage').value) || 200;
+      const date = document.getElementById('customDate').value;
+      const startTime = document.getElementById('customStartTime').value;
+      const endTime = document.getElementById('customEndTime').value;
+      const note = document.getElementById('customNote').value.trim() || '自訂選時補登';
+
+      if (!date || !startTime || !endTime) {
+        showToast('請完整選擇日期與起訖時間！', 'error');
+        return;
+      }
+
+      const hours = calculateHours(startTime, endTime);
+      const salary = Math.round(hours * wage);
+
+      const payload = {
+        action: 'manualRecord',
+        employeeName: employee,
+        hourlyWage: wage,
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        note: note
+      };
+
+      if (currentGasUrl) {
+        showToast('正在同步至 Google Sheet...', 'info');
+        try {
+          await fetch(currentGasUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      localRecords.unshift({
+        id: 'REC-' + Date.now(),
+        employee: employee,
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        hours: hours,
+        hourlyWage: wage,
+        salary: salary,
+        note: note
+      });
+
+      saveLocal();
+      renderRecords();
+      showToast(`補登成功！工時 ${hours} 小時，薪水 NT$ ${salary}`, 'success');
+    }
+
+    // 渲染明細與統計
+    function renderRecords() {
+      const tbody = document.getElementById('recordTableBody');
+      const emptyNotice = document.getElementById('emptyNotice');
+      tbody.innerHTML = '';
+
+      if (localRecords.length === 0) {
+        emptyNotice.classList.remove('hidden');
+      } else {
+        emptyNotice.classList.add('hidden');
+      }
+
+      let totalH = 0;
+      let totalS = 0;
+
+      localRecords.forEach((rec, idx) => {
+        totalH += rec.hours;
+        totalS += rec.salary;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-semibold text-slate-800">${rec.date}</td>
+          <td class="py-3 px-2 text-emerald-600 font-bold">${rec.startTime}</td>
+          <td class="py-3 px-2 ${rec.endTime === '未打卡' ? 'text-amber-500 font-semibold' : 'text-rose-600 font-bold'}">${rec.endTime}</td>
+          <td class="py-3 px-2 text-right font-bold text-indigo-900">${rec.hours.toFixed(2)} h</td>
+          <td class="py-3 px-3 text-right font-black text-emerald-600">NT$ ${rec.salary.toLocaleString()}</td>
+          <td class="py-3 px-3 text-slate-500 max-w-[120px] truncate" title="${rec.note}">${rec.note}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('statCount').textContent = `${localRecords.length} 次`;
+      document.getElementById('statTotalHours').textContent = `${totalH.toFixed(1)} hr`;
+      document.getElementById('statTotalSalary').textContent = `NT$ ${totalS.toLocaleString()}`;
+    }
+
+    function saveLocal() {
+      localStorage.setItem('clockin_records', JSON.stringify(localRecords));
+    }
+
+    function toggleApiInput() {
+      const sec = document.getElementById('apiConfigSection');
+      sec.classList.toggle('hidden');
+    }
+
+    function saveApiUrl() {
+      const url = document.getElementById('gasApiUrl').value.trim();
+      currentGasUrl = url;
+      localStorage.setItem('gas_api_url', url);
+      showToast('Google Sheet 串接網址已儲存！', 'success');
+    }
+
+    async function fetchHistory() {
+      if (!currentGasUrl) {
+        renderRecords();
+        showToast('目前為本機展示紀錄', 'info');
+        return;
+      }
+      showToast('正在由 Google Sheet 載入紀錄...', 'info');
+      try {
+        const resp = await fetch(`${currentGasUrl}?action=getRecords&employeeName=${encodeURIComponent(document.getElementById('employeeName').value)}`);
+        const data = await resp.json();
+        if (data.status === 'success' && data.records) {
+          localRecords = data.records;
+          saveLocal();
+          renderRecords();
+          showToast('已從 Google Sheet 成功同步最新紀錄！', 'success');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('同步失敗，使用本機紀錄', 'error');
+      }
+    }
+
+    // 彈出 Toast 訊息
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.textContent = msg;
+      if (type === 'success') {
+        toast.className = "fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-white font-medium text-sm flex items-center gap-2 transform transition duration-300 z-50 bg-emerald-600";
+        toastIcon.className = "fa-solid fa-circle-check";
+      } else if (type === 'error') {
+        toast.className = "fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-white font-medium text-sm flex items-center gap-2 transform transition duration-300 z-50 bg-rose-600";
+        toastIcon.className = "fa-solid fa-circle-exclamation";
+      } else {
+        toast.className = "fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-white font-medium text-sm flex items-center gap-2 transform transition duration-300 z-50 bg-indigo-600";
+        toastIcon.className = "fa-solid fa-circle-info";
+      }
+
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0');
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
