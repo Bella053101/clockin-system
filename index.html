@@ -258,7 +258,7 @@
   <script>
     // 本機暫存與狀態初始化
     let localRecords = JSON.parse(localStorage.getItem('clockin_records') || '[]');
-    let currentGasUrl = localStorage.getItem('gas_api_url') || '';
+    let currentGasUrl = localStorage.getItem('gas_api_url') || 'https://script.google.com/macros/s/AKfycbzxGmRNOTi3NTgvsZ2-XovnwZrBYdNRpYpD_rXr09wSmQX1y8MRd_htj8lLLjaRwjqP9g/exec';
 
     // 初始化設定
     document.addEventListener('DOMContentLoaded', () => {
