@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>雲端智能上班打卡與薪資結算系統</title>
+  <title>雲端上班打卡與薪資結算系統</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome 圖標 -->
@@ -17,11 +17,18 @@
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(12px);
     }
+    .cal-cell {
+      min-height: 80px;
+      transition: all 0.2s ease;
+    }
+    .cal-cell:hover {
+      transform: translateY(-2px);
+    }
   </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 min-h-screen text-slate-800 p-4 sm:p-6 lg:p-8">
 
-  <div class="max-w-5xl mx-auto space-y-6">
+  <div class="max-w-6xl mx-auto space-y-6">
 
     <!-- 頂部 Header -->
     <header class="glass-card rounded-2xl p-6 shadow-2xl border border-white/20 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -33,7 +40,7 @@
           <h1 class="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-800 bg-clip-text text-transparent">
             雲端上班打卡系統
           </h1>
-          <p class="text-sm text-slate-500 font-medium">Google Sheet 後端即時同步 ✕ 日曆選時 ✕ 薪水智能試算</p>
+          <p class="text-sm text-slate-500 font-medium">Google 試算表即時連線 ✕ 月曆視覺化出勤 ✕ 薪資智能試算</p>
         </div>
       </div>
 
@@ -73,7 +80,7 @@
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">員工姓名</label>
-              <input type="text" id="employeeName" value="陳小美" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
+              <input type="text" id="employeeName" value="bella" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
             </div>
 
             <div>
@@ -168,24 +175,80 @@
 
       </div>
 
-      <!-- 右側：統計卡片與打卡明細 (7 欄) -->
+      <!-- 右側：數據、月曆視覺化與明細 (7 欄) -->
       <div class="lg:col-span-7 space-y-6">
 
         <!-- 數據統計儀表板 -->
         <div class="grid grid-cols-3 gap-3 sm:gap-4">
           <div class="glass-card rounded-2xl p-4 shadow-xl border border-white/20">
-            <div class="text-xs font-semibold text-slate-500 mb-1">總打卡次數</div>
-            <div id="statCount" class="text-2xl font-black text-slate-800">0 次</div>
+            <div class="text-xs font-semibold text-slate-500 mb-1">出勤總天數</div>
+            <div id="statCount" class="text-2xl font-black text-slate-800">0 天</div>
           </div>
 
           <div class="glass-card rounded-2xl p-4 shadow-xl border border-white/20">
-            <div class="text-xs font-semibold text-indigo-600 mb-1">累積工時</div>
+            <div class="text-xs font-semibold text-indigo-600 mb-1">累積總工時</div>
             <div id="statTotalHours" class="text-2xl font-black text-indigo-700">0.0 hr</div>
           </div>
 
           <div class="glass-card rounded-2xl p-4 shadow-xl border border-white/20">
             <div class="text-xs font-semibold text-emerald-600 mb-1">累計應領薪資</div>
             <div id="statTotalSalary" class="text-2xl font-black text-emerald-600">NT$ 0</div>
+          </div>
+        </div>
+
+        <!-- 🌟 出勤視覺化月曆卡片 🌟 -->
+        <div class="glass-card rounded-2xl p-6 shadow-xl border border-white/20 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+                <i class="fa-regular fa-calendar-check text-lg"></i>
+              </div>
+              <h3 id="calMonthTitle" class="text-lg font-bold text-slate-800">出勤月曆視覺化</h3>
+            </div>
+            <!-- 切換月份按鈕 -->
+            <div class="flex items-center gap-2">
+              <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm transition">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <button onclick="resetCurrentMonth()" class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-semibold transition">
+                本月
+              </button>
+              <button onclick="changeMonth(1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm transition">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 視覺化月曆網格 -->
+          <div class="bg-slate-50/80 rounded-2xl p-3 border border-slate-100">
+            <!-- 星期列 -->
+            <div class="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 mb-2">
+              <span class="text-rose-400">日</span>
+              <span>一</span>
+              <span>二</span>
+              <span>三</span>
+              <span>四</span>
+              <span>五</span>
+              <span class="text-emerald-500">六</span>
+            </div>
+            <!-- 日期網格 -->
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1.5">
+              <!-- 動態生成日曆格子 -->
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs text-slate-500 px-1 pt-1">
+            <div class="flex items-center gap-4">
+              <div class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-md bg-emerald-500/20 border border-emerald-500"></span>
+                <span>有出勤上班</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-md bg-amber-400/20 border border-amber-400"></span>
+                <span>僅上班未打下班</span>
+              </div>
+            </div>
+            <div class="text-slate-400">點擊日曆可直接選取補登日期</div>
           </div>
         </div>
 
@@ -196,7 +259,7 @@
               <i class="fa-solid fa-list-check text-indigo-600"></i> 打卡與薪資明細
             </h3>
             <button onclick="fetchHistory()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-              <i class="fa-solid fa-rotate-right"></i> 重新載入
+              <i class="fa-solid fa-rotate-right"></i> 從 Google Sheet 同步
             </button>
           </div>
 
@@ -248,6 +311,9 @@
     let currentGasUrl = DEFAULT_GAS_URL;
     localStorage.setItem('gas_api_url', DEFAULT_GAS_URL);
 
+    // 月曆當前檢視年月
+    let viewDate = new Date();
+
     // 防止連點防抖開關
     let isSubmitting = false;
 
@@ -257,7 +323,6 @@
       try {
         const queryParams = new URLSearchParams(payload).toString();
         const fullUrl = `${currentGasUrl}?${queryParams}`;
-        // 只使用單一 fetch 送出，避免同時被發送兩次
         await fetch(fullUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {});
       } catch (err) {
         console.error('Sheet Sync Error:', err);
@@ -269,7 +334,11 @@
       initClocks();
       initDateInputs();
       renderRecords();
+      renderCalendar();
       updateCalculations();
+      
+      // 自動從 Google Sheet 拉取最新紀錄
+      fetchHistory(true);
       
       // 綁定選時改變時即時試算薪資
       document.getElementById('customStartTime').addEventListener('input', updateCalculations);
@@ -341,6 +410,7 @@
       if (isSubmitting) return;
       isSubmitting = true;
       setTimeout(() => { isSubmitting = false; }, 2500);
+
       const employee = document.getElementById('employeeName').value.trim() || '員工';
       const wage = Number(document.getElementById('hourlyWage').value) || 200;
       const note = document.getElementById('instantNote').value.trim() || (action === 'clockIn' ? '即時上班打卡' : '即時下班打卡');
@@ -358,11 +428,6 @@
         time: timeStr
       };
 
-      // 同步至 Google 試算表
-      showToast('正在即時寫入 Google Sheet...', 'info');
-      await sendToGoogleSheet(payload);
-      showToast(action === 'clockIn' ? '上班打卡已同步至 Google Sheet！' : '下班打卡已同步至 Google Sheet！', 'success');
-
       // 本機紀錄更新
       if (action === 'clockIn') {
         localRecords.unshift({
@@ -379,7 +444,7 @@
         showToast(`上班打卡成功！(${timeStr})`, 'success');
       } else {
         // 下班：尋找未結算打卡
-        const target = localRecords.find(r => r.employee === employee && r.date === dateStr && r.endTime === '未打卡');
+        const target = localRecords.find(r => r.employee === employee && r.date === dateStr && (r.endTime === '未打卡' || !r.endTime));
         if (target) {
           target.endTime = timeStr;
           target.hours = calculateHours(target.startTime, timeStr);
@@ -388,12 +453,17 @@
           showToast(`下班成功！工時 ${target.hours}h，薪水 NT$ ${target.salary}`, 'success');
         } else {
           showToast('今天尚未找到上班打卡紀錄，請用補登模式！', 'error');
+          isSubmitting = false;
           return;
         }
       }
 
       saveLocal();
       renderRecords();
+      renderCalendar();
+
+      // 單一通道同步至 Google 試算表
+      await sendToGoogleSheet(payload);
     }
 
     // 自訂日曆與時間補登
@@ -401,6 +471,7 @@
       if (isSubmitting) return;
       isSubmitting = true;
       setTimeout(() => { isSubmitting = false; }, 2500);
+
       const employee = document.getElementById('employeeName').value.trim() || '員工';
       const wage = Number(document.getElementById('hourlyWage').value) || 200;
       const date = document.getElementById('customDate').value;
@@ -410,6 +481,7 @@
 
       if (!date || !startTime || !endTime) {
         showToast('請完整選擇日期與起訖時間！', 'error');
+        isSubmitting = false;
         return;
       }
 
@@ -426,9 +498,6 @@
         note: note
       };
 
-      showToast('正在同步至 Google Sheet...', 'info');
-      await sendToGoogleSheet(payload);
-
       localRecords.unshift({
         id: 'REC-' + Date.now(),
         employee: employee,
@@ -443,7 +512,123 @@
 
       saveLocal();
       renderRecords();
+      renderCalendar();
       showToast(`補登成功！工時 ${hours} 小時，薪水 NT$ ${salary}`, 'success');
+
+      // 同步至 Google 試算表
+      await sendToGoogleSheet(payload);
+    }
+
+    // 🌟 月曆視覺化核心函數 🌟
+    function changeMonth(delta) {
+      viewDate.setMonth(viewDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function resetCurrentMonth() {
+      viewDate = new Date();
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = viewDate.getFullYear();
+      const month = viewDate.getMonth();
+      document.getElementById('calMonthTitle').textContent = `${year} 年 ${month + 1} 月 出勤視覺化`;
+
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      // 計算本月第一天是星期幾與本月總天數
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // 將本地紀錄整理為按日期群組
+      const dateMap = {};
+      localRecords.forEach(rec => {
+        if (!dateMap[rec.date]) {
+          dateMap[rec.date] = [];
+        }
+        dateMap[rec.date].push(rec);
+      });
+
+      // 填充上個月空白
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = "cal-cell bg-slate-100/40 rounded-xl opacity-30";
+        grid.appendChild(emptyCell);
+      }
+
+      // 填充當月每一天
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayRecords = dateMap[dateStr] || [];
+        const isToday = (dateStr === todayStr);
+
+        let hasClockIn = dayRecords.length > 0;
+        let isComplete = dayRecords.some(r => r.endTime && r.endTime !== '未打卡');
+        let dayHours = dayRecords.reduce((acc, cur) => acc + (cur.hours || 0), 0);
+        let daySalary = dayRecords.reduce((acc, cur) => acc + (cur.salary || 0), 0);
+
+        const cell = document.createElement('div');
+        cell.onclick = () => selectCalDate(dateStr);
+        cell.className = `cal-cell cursor-pointer rounded-xl p-1.5 flex flex-col justify-between border ${
+          isToday ? 'ring-2 ring-indigo-500 font-bold' : ''
+        } ${
+          hasClockIn
+            ? isComplete
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-sm'
+              : 'bg-amber-50 border-amber-300 text-amber-950 shadow-sm'
+            : 'bg-white border-slate-100 text-slate-700 hover:border-indigo-200'
+        }`;
+
+        let statusBadge = '';
+        if (hasClockIn) {
+          if (isComplete) {
+            statusBadge = `
+              <div class="mt-1">
+                <span class="inline-block px-1 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white leading-none">
+                  ✓ ${dayHours > 0 ? dayHours.toFixed(1) + 'h' : '已結算'}
+                </span>
+                ${daySalary > 0 ? `<div class="text-[9px] text-emerald-700 font-bold mt-0.5">\$${daySalary}</div>` : ''}
+              </div>`;
+          } else {
+            statusBadge = `
+              <div class="mt-1">
+                <span class="inline-block px-1 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white leading-none animate-pulse">
+                  上班中
+                </span>
+              </div>`;
+          }
+        }
+
+        cell.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold ${isToday ? 'text-indigo-600 font-extrabold' : ''}">${day}</span>
+            ${hasClockIn ? '<span class="w-1.5 h-1.5 rounded-full ' + (isComplete ? 'bg-emerald-500' : 'bg-amber-500') + '"></span>' : ''}
+          </div>
+          ${statusBadge}
+        `;
+
+        grid.appendChild(cell);
+      }
+    }
+
+    // 點擊日曆格子直接選取該日期進行補登
+    function selectCalDate(dateStr) {
+      switchTab('custom');
+      document.getElementById('customDate').value = dateStr;
+      showToast(`已選取日期：${dateStr}，可直接進行補登`, 'info');
+    }
+
+    // 格式化時間 (支援 ISO 字串轉換)
+    function formatTimeDisplay(t) {
+      if (!t || t === '未打卡') return '未打卡';
+      if (t.includes('T') && t.includes('Z')) {
+        const d = new Date(t);
+        return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+      }
+      return t;
     }
 
     // 渲染明細與統計
@@ -460,25 +645,30 @@
 
       let totalH = 0;
       let totalS = 0;
+      const uniqueDays = new Set();
 
       localRecords.forEach((rec, idx) => {
-        totalH += rec.hours;
-        totalS += rec.salary;
+        totalH += rec.hours || 0;
+        totalS += rec.salary || 0;
+        if (rec.date) uniqueDays.add(rec.date);
+
+        const startTimeFmt = formatTimeDisplay(rec.startTime);
+        const endTimeFmt = formatTimeDisplay(rec.endTime);
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
         tr.innerHTML = `
           <td class="py-3 px-3 font-semibold text-slate-800">${rec.date}</td>
-          <td class="py-3 px-2 text-emerald-600 font-bold">${rec.startTime}</td>
-          <td class="py-3 px-2 ${rec.endTime === '未打卡' ? 'text-amber-500 font-semibold' : 'text-rose-600 font-bold'}">${rec.endTime}</td>
-          <td class="py-3 px-2 text-right font-bold text-indigo-900">${rec.hours.toFixed(2)} h</td>
-          <td class="py-3 px-3 text-right font-black text-emerald-600">NT$ ${rec.salary.toLocaleString()}</td>
-          <td class="py-3 px-3 text-slate-500 max-w-[120px] truncate" title="${rec.note}">${rec.note}</td>
+          <td class="py-3 px-2 text-emerald-600 font-bold">${startTimeFmt}</td>
+          <td class="py-3 px-2 ${endTimeFmt === '未打卡' ? 'text-amber-500 font-semibold' : 'text-rose-600 font-bold'}">${endTimeFmt}</td>
+          <td class="py-3 px-2 text-right font-bold text-indigo-900">${(rec.hours || 0).toFixed(2)} h</td>
+          <td class="py-3 px-3 text-right font-black text-emerald-600">NT$ ${(rec.salary || 0).toLocaleString()}</td>
+          <td class="py-3 px-3 text-slate-500 max-w-[120px] truncate" title="${rec.note || ''}">${rec.note || ''}</td>
         `;
         tbody.appendChild(tr);
       });
 
-      document.getElementById('statCount').textContent = `${localRecords.length} 次`;
+      document.getElementById('statCount').textContent = `${uniqueDays.size} 天`;
       document.getElementById('statTotalHours').textContent = `${totalH.toFixed(1)} hr`;
       document.getElementById('statTotalSalary').textContent = `NT$ ${totalS.toLocaleString()}`;
     }
@@ -487,37 +677,22 @@
       localStorage.setItem('clockin_records', JSON.stringify(localRecords));
     }
 
-    function toggleApiInput() {
-      const sec = document.getElementById('apiConfigSection');
-      sec.classList.toggle('hidden');
-    }
-
-    function saveApiUrl() {
-      const url = document.getElementById('gasApiUrl').value.trim();
-      currentGasUrl = url;
-      localStorage.setItem('gas_api_url', url);
-      showToast('Google Sheet 串接網址已儲存！', 'success');
-    }
-
-    async function fetchHistory() {
-      if (!currentGasUrl) {
-        renderRecords();
-        showToast('目前為本機展示紀錄', 'info');
-        return;
-      }
-      showToast('正在由 Google Sheet 載入紀錄...', 'info');
+    async function fetchHistory(silent = false) {
+      if (!currentGasUrl) return;
+      if (!silent) showToast('正在由 Google Sheet 載入紀錄...', 'info');
       try {
-        const resp = await fetch(`${currentGasUrl}?action=getRecords&employeeName=${encodeURIComponent(document.getElementById('employeeName').value)}`);
+        const resp = await fetch(`${currentGasUrl}?action=getRecords`);
         const data = await resp.json();
         if (data.status === 'success' && data.records) {
           localRecords = data.records;
           saveLocal();
           renderRecords();
-          showToast('已從 Google Sheet 成功同步最新紀錄！', 'success');
+          renderCalendar();
+          if (!silent) showToast('已從 Google Sheet 成功同步最新紀錄！', 'success');
         }
       } catch (err) {
         console.error(err);
-        showToast('同步失敗，使用本機紀錄', 'error');
+        if (!silent) showToast('同步失敗，使用本機紀錄', 'error');
       }
     }
 
